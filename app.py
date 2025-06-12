@@ -3,6 +3,7 @@ from flasgger import Swagger
 from mongodb_connection_manager import MongoConnectionHolder
 from routes import initial_routes
 import os
+import sys
 import logging
 
 app = Flask(__name__)
@@ -10,8 +11,12 @@ Swagger(app)
 
 # Configure the logging system
 logging.basicConfig(
-    level=logging.INFO, # or DEBUG,INFO, WARNING, ERROR
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.DEBUG, # or DEBUG,INFO, WARNING, ERROR
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("logs/app.log"),
+        logging.StreamHandler(sys.stdout),  # Use stdout instead of default stderr
+    ],
 )
 
 # Create a logger object
