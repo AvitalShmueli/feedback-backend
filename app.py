@@ -9,14 +9,16 @@ import logging
 app = Flask(__name__)
 Swagger(app)
 
-# Configure the logging system
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.INFO)
+
+stderr_handler = logging.StreamHandler(sys.stderr)
+stderr_handler.setLevel(logging.WARNING)
+
 logging.basicConfig(
     level=logging.DEBUG, # or DEBUG,INFO, WARNING, ERROR
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("logs/app.log"),
-        logging.StreamHandler(sys.stdout),  # Use stdout instead of default stderr
-    ],
+    handlers=[stdout_handler, stderr_handler]
 )
 
 # Create a logger object
