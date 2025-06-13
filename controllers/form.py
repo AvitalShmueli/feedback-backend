@@ -174,13 +174,19 @@ def get_all_forms_by_package(package_name):
     ---
     tags:
       - Admin Forms
-    description: Returns all forms for the specified package.
+    description: Returns all forms for the specified package, optionally filtered by status.
     parameters:
         - in: path
           name: package_name
           type: string
           required: true
           description: Package name to retrieve the active form for
+        - name: status
+          in: query
+          type: string
+          enum: [active, inactive]
+          required: false
+          description: Filter forms by active/inactive status.
     responses:
         200:
             description: List of all forms for the specified package
@@ -203,6 +209,8 @@ def get_all_forms_by_package(package_name):
                             type: boolean
         404:
             description: Package no found or no active form found
+        400:
+            description: Invalid status parameter
         500:
             description: An error occurred while retrieving the form
     """
@@ -211,8 +219,18 @@ def get_all_forms_by_package(package_name):
     if db is None:
         logger.error("Database not initialized.")
         return jsonify({"error": "Database not initialized"}), 500
+    
+    status = request.args.get("status")
+    query = {"package_name": package_name}
+
+    if status:
+        status = status.lower()
+        if status not in ["active", "inactive"]:
+            logger.warning(f"Invalid status filter: {status}")
+            return jsonify({"error": "Invalid status parameter. Must be 'active' or 'inactive'."}), 400
+        query["is_active"] = (status == "active")
    
-    form_list = list(db["forms"].find({"package_name": package_name}))
+    form_list = list(db["forms"].find(query))
 
     if not form_list:
         logger.warning("No forms found for this package.")
@@ -229,7 +247,14 @@ def get_all_forms():
     ---
     tags:
       - Admin Forms
-    description: Returns all forms.
+    description: Returns all forms, optionally filtered by status.
+    parameters:
+        - name: status
+          in: query
+          type: string
+          enum: [active, inactive]
+          required: false
+          description: Filter forms by active/inactive status.
     responses:
         200:
             description: List of all forms
@@ -252,6 +277,8 @@ def get_all_forms():
                             type: boolean
         404:
             description: No forms found
+        400:
+            description: Invalid status parameter
         500:
             description: An error occurred while retrieving the form
     """
@@ -260,8 +287,17 @@ def get_all_forms():
     if db is None:
         logger.error("Database not initialized.")
         return jsonify({"error": "Database not initialized"}), 500
-   
-    form_list = list(db["forms"].find())
+    
+    status = request.args.get("status")
+    query = {}
+    if status:
+        status = status.lower()
+        if status not in ["active", "inactive"]:
+            logger.warning(f"Invalid status filter: {status}")
+            return jsonify({"error": "Invalid status parameter. Must be 'active' or 'inactive'."}), 400
+        query["is_active"] = (status == "active")
+    
+    form_list = list(db["forms"].find(query))
 
     if not form_list:
         logger.warning("No forms found.")
