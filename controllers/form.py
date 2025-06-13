@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from mongodb_connection_manager import MongoConnectionHolder
 from datetime import datetime
+from bson import ObjectId
 import uuid
 import logging
 
@@ -110,6 +111,39 @@ def create_form():
         "created_at": form_doc["created_at"],
         "type": form_type
         }), 201
+
+
+@form_bp.route("/forms/packages", methods=["GET"])
+def get_all_package_names():
+    """
+    Get all unique package names from the forms collection.
+    ---
+    tags:
+      - Admin Forms
+    description: Returns a list of all distinct package names in the forms database.
+    responses:
+        200:
+            description: List of unique package names
+            schema:
+                type: array
+                items:
+                    type: string
+        500:
+            description: Internal server error
+    """
+    logger.info("Request to get all unique package names.")
+    db = MongoConnectionHolder.get_db()
+    if db is None:
+        logger.error("Database not initialized.")
+        return jsonify({"error": "Database not initialized"}), 500
+
+    try:
+        package_names = db["forms"].distinct("package_name")
+        logger.info(f"Found {len(package_names)} unique package name(s).")
+        return jsonify(package_names), 200
+    except Exception as e:
+        logger.exception("Error retrieving package names.")
+        return jsonify({"error": "Failed to retrieve package names."}), 500
 
 
 @form_bp.route("/forms/<package_name>", methods=["GET"])
@@ -405,3 +439,81 @@ def update_form_status(form_id):
         "updated_at": updated_at,
         "deactivated_forms_count": deactivated_forms_count
     }), 200
+
+
+@form_bp.route("/forms/search", methods=["GET"])
+def search_forms():
+    """
+    Search for forms using optional filters: package_name, status, title, and type.
+    ---
+    tags:
+      - Admin Forms
+    description: Returns a list of forms filtered by any combination of package_name, status (active/inactive), title (partial), and type.
+    parameters:
+        - name: package_name
+          in: query
+          type: string
+          required: false
+          description: Filter by exact package name
+        - name: status
+          in: query
+          type: string
+          enum: [active, inactive]
+          required: false
+          description: Filter by status (active/inactive)
+        - name: title
+          in: query
+          type: string
+          required: false
+          description: Filter by partial title (case-insensitive)
+        - name: type
+          in: query
+          type: string
+          enum: [rating, free_text, rating_text]
+          required: false
+          description: Filter by form type (rating/free_text/rating_text)
+    responses:
+        200:
+            description: List of matching forms
+        500:
+            description: Internal error
+    """
+    logger.info("Request to search forms with optional filters.")
+    db = MongoConnectionHolder.get_db()
+    if db is None:
+        logger.error("Database not initialized.")
+        return jsonify({"error": "Database not initialized"}), 500
+
+    # Collect optional query params
+    package_name = request.args.get("package_name")
+    status = request.args.get("status")
+    title = request.args.get("title")
+    form_type = request.args.get("type")
+
+    # Build query dynamically
+    query = {}
+    if package_name:
+        query["package_name"] = package_name
+
+    if status:
+        if status.lower() == "active":
+            query["is_active"] = True
+        elif status.lower() == "inactive":
+            query["is_active"] = False
+        else:
+            return jsonify({"error": "Invalid status value. Must be 'active' or 'inactive'."}), 400
+
+    if title:
+        query["title"] = {"$regex": title, "$options": "i"}  # case-insensitive partial match
+
+    if form_type:
+        query["type"] = form_type
+
+    try:
+        forms = list(db["forms"].find(query))
+        logger.info(f"Found {len(forms)} form(s) matching filters: {query}")
+        return jsonify(forms), 200
+    except Exception as e:
+        logger.exception("Error occurred during advanced form search.")
+        return jsonify({"error": "Failed to retrieve forms"}), 500
+
