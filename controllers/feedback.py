@@ -474,7 +474,7 @@ def get_average_rating(package_name):
         return jsonify({"average_rating": 0}), 200
 
 
-@feedback_bp.route("/feedback/<package_name>/stats", methods=["GET"])
+@feedback_bp.route("/feedback/stats/<package_name>", methods=["GET"])
 def get_feedback_stats(package_name):
     """
     Get feedback statistics for a package

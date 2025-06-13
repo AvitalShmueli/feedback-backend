@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from mongodb_connection_manager import MongoConnectionHolder
 from datetime import datetime
-from bson import ObjectId
 import uuid
 import logging
 
