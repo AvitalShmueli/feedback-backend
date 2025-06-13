@@ -173,7 +173,7 @@ def get_all_forms_by_package(package_name):
     Get all forms for a package.
     ---
     tags:
-      - Forms
+      - Admin Forms
     description: Returns all forms for the specified package.
     parameters:
         - in: path
@@ -183,7 +183,7 @@ def get_all_forms_by_package(package_name):
           description: Package name to retrieve the active form for
     responses:
         200:
-            description: List of all feedbacks
+            description: List of all forms for the specified package
             schema:
                 type: array
                 items:
@@ -219,6 +219,55 @@ def get_all_forms_by_package(package_name):
         return jsonify({"error": "No forms found for this package"}), 404
 
     logger.info(f"Retrieved {len(form_list)} forms entries for package '{package_name}'.")
+    return jsonify(form_list), 200
+
+
+@form_bp.route("/forms/all", methods=["GET"])
+def get_all_forms():
+    """
+    Get all forms.
+    ---
+    tags:
+      - Admin Forms
+    description: Returns all forms.
+    responses:
+        200:
+            description: List of all forms
+            schema:
+                type: array
+                items:
+                    type: object
+                    properties:
+                        _id:
+                            type: string
+                        package_name:
+                            type: string
+                        title:
+                            type: string
+                        type:
+                            type: string
+                        created_at:
+                            type: string
+                        is_active:
+                            type: boolean
+        404:
+            description: No forms found
+        500:
+            description: An error occurred while retrieving the form
+    """
+    logger.info(f"Request to get all forms.")
+    db = MongoConnectionHolder.get_db()
+    if db is None:
+        logger.error("Database not initialized.")
+        return jsonify({"error": "Database not initialized"}), 500
+   
+    form_list = list(db["forms"].find())
+
+    if not form_list:
+        logger.warning("No forms found.")
+        return jsonify({"error": "No forms found"}), 404
+
+    logger.info(f"Retrieved {len(form_list)} forms entries.")
     return jsonify(form_list), 200
 
 
