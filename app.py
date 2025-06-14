@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from flasgger import Swagger
 from mongodb_connection_manager import MongoConnectionHolder
 from routes import initial_routes
@@ -7,6 +8,7 @@ import sys
 import logging
 
 app = Flask(__name__)
+CORS(app)
 Swagger(app)
 
 stdout_handler = logging.StreamHandler(sys.stdout)

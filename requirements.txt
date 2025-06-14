@@ -2,3 +2,4 @@ Flask # The main Flask library
 Flasgger # If you want to add Swagger documentation
 python-dotenv # If you are using environment variables
 pymongo # If you are using MongoDB
+flask-cors # For handling CORS
