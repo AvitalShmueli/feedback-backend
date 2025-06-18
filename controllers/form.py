@@ -178,7 +178,7 @@ def get_active_form(package_name):
                     is_active:
                         type: boolean
         404:
-            description: Package no found or no active form found
+            description: Package not found or no active form found
         500:
             description: An error occurred while retrieving the form
     """
@@ -241,7 +241,7 @@ def get_all_forms_by_package(package_name):
                         is_active:
                             type: boolean
         404:
-            description: Package no found or no active form found
+            description: Package not found or no active form found
         400:
             description: Invalid status parameter
         500:

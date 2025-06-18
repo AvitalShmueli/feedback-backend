@@ -53,7 +53,7 @@ def submit_feedback():
                         description: unique identifier of the user
     responses:
         201:
-            description: The feedback was created successfully
+            description: Feedback submitted successfully
             schema:
                 type: object
                 properties:
@@ -77,7 +77,9 @@ def submit_feedback():
                         type: string
                         format: date-time
         400:
-            description: The request was invalid
+            description: Invalid request
+        404: 
+            description: No active form found with the provided form id
         500:
             description: An error occurred while creating the feedback
     """
@@ -90,7 +92,6 @@ def submit_feedback():
         return jsonify({"error": "Could not connect to the database"}), 500
 
     # Check if the request is valid
-    #required_fields = ["package_name", "message", "rating", "app_version", "form_id", "user_id"]
     required_fields = ["package_name", "app_version", "form_id", "user_id"]
     if not data:
         logger.warning("No JSON payload received.")
@@ -105,6 +106,18 @@ def submit_feedback():
         return jsonify({
             "error": "Invalid request",
             "details": f"Missing required field(s): {', '.join(missing_fields)}"
+        }), 400
+    
+    # Validate form_id exists in the forms collection and the form is active
+    form_id = data["form_id"]
+    forms_collection = db["forms"]
+    form = forms_collection.find_one({"_id": form_id, "is_active": True})
+
+    if not form:
+        logger.warning(f"Invalid form_id: {form_id}")
+        return jsonify({
+            "error": "Invalid form_id",
+            "details": "No active form found with the provided form_id"
         }), 400
     
     # Check that at least 'message' or 'rating' is provided
@@ -128,9 +141,6 @@ def submit_feedback():
                 "details": "Rating must be an integer between 1 and 5"
             }), 400
 
-    #if not data or not all(key in data for key in ["package_name", "message", "rating", "app_version", "form_id", "user_id"]):
-    #    logger.warning("Invalid request data received.")
-    #    return jsonify({"error": "Invalid request"}), 400
 
     feedback_item = {
         "_id": str(uuid.uuid4()),
@@ -164,24 +174,6 @@ def submit_feedback():
         "app_version": feedback_item["app_version"],
         "device_info": feedback_item["device_info"]
     }), 201
-    
-    # Insert the feature toggle into the database
-    #logger.debug(f"Inserting feedback: {feedback_item}")
-    #package_collection = db[data["package_name"]]
-    #package_collection.insert_one(feedback_item)
-
-    #logger.info("Feedback submitted successfully.")
-    #return jsonify({
-    #        "response": "Feedback submitted successfully",
-    #        "_id": feedback_item["_id"],
-    #        "created_at" : feedback_item["created_at"],
-    #        "message": feedback_item["message"],
-    #        "rating" : feedback_item["rating"],
-    #        "user_id" : feedback_item["user_id"],
-    #        "form_id" : feedback_item["form_id"],
-    #        "app_version" : feedback_item["app_version"],
-    #        "device_info" : feedback_item["device_info"]
-    #    }),201
     
 
 @feedback_bp.route("/feedback/<package_name>", methods=["GET"])
@@ -385,7 +377,7 @@ def get_feedback_by_user(package_name, user_id):
         404:
             description: Package not found
         500:
-            description: An error occurred while calculating the average rating
+            description: An error occurred while retrieving the user's feedbacks
     """
     logger.info(f"Request to get feedback by user '{user_id}' for package '{package_name}'.")
     db = MongoConnectionHolder.get_db()
@@ -434,7 +426,7 @@ def get_average_rating(package_name):
         404:
             description: Package or form not found
         500:
-            description: Database not initialized
+            description: An error occurred while retrieving feedback averge rating
     """
     logger.info(f"Request to get average rating for package '{package_name}'.")
     form_id = request.args.get("form_id")
@@ -453,7 +445,6 @@ def get_average_rating(package_name):
 
     package_collection = db[package_name]
     ratings = []
-    #ratings = [f["rating"] for f in package_collection.find(query) if "rating" in f]
     feedbacks = list(package_collection.find(query))
     if not feedbacks:
         logger.warning(f"No feedback entries found for form '{form_id}' in package '{package_name}'.")
@@ -474,7 +465,7 @@ def get_average_rating(package_name):
         return jsonify({"average_rating": 0}), 200
 
 
-@feedback_bp.route("/feedback/stats/<package_name>", methods=["GET"])
+@feedback_bp.route("/feedback/<package_name>/stats", methods=["GET"])
 def get_feedback_stats(package_name):
     """
     Get feedback statistics for a package
@@ -569,7 +560,7 @@ def search_feedback_by_message(package_name):
           type: string
           required: true
           description: Name of the package
-        - name: q
+        - name: query
           in: query
           type: string
           required: false
@@ -602,7 +593,7 @@ def search_feedback_by_message(package_name):
         500:
             description: An error occurred while searching for feedbacks
     """
-    query = request.args.get("q", "")
+    query = request.args.get("query", "")
     logger.info(f"Searching feedback for package '{package_name}' with query '{query}'.")
     db = MongoConnectionHolder.get_db()
     if db is None:
@@ -693,7 +684,6 @@ def get_recent_feedback(package_name):
     if not feedbacks:
         logger.warning(f"No feedback entries found for form '{form_id}' in package '{package_name}'.")
         return jsonify({"error": "No feedbacks found for the form"}), 404
-    #feedbacks = list(package_collection.find().sort("created_at", -1).limit(limit))
 
     logger.info(f"Retrieved {len(feedbacks)} recent feedback entries.")
     return jsonify(feedbacks), 200
@@ -778,7 +768,7 @@ def delete_feedbacks_for_form(package_name, form_id):
                     message:
                         type: string
         404:
-            description: Package / form not found
+            description: Package or form not found
         500:
             description: An error occurred while deleting feedbacks
     """
